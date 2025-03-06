@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import { customAlphabet } from "nanoid";
+
+export const generateShortId = customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 6);
 
 // User Interface
 export interface IUser extends mongoose.Document {

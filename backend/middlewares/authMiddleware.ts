@@ -24,3 +24,24 @@ export const protect = expressAsyncHandler(async (req, res, next) => {
         throw new Error("Not authorized, token failed");
     }
 });
+
+// @docs: Middleware to add user data to the request body if user is logged in
+export const addUserToRequest = expressAsyncHandler(async (req, res, next) => {
+    const cookie = req.headers.cookie;
+    if (!cookie) {
+        return next();
+    }
+
+    const token = cookie.split("=")[1];
+    if (!token) {
+        return next();
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+        req.body.user = decoded;
+        next();
+
+    } catch (error) {
+        next();
+    }
+});

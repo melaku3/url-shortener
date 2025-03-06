@@ -10,3 +10,11 @@ export const userSchema = z.object({
     _id: z.string().length(24, { message: "ID must be exactly 24 characters long" }).optional()
 });
 
+// urlSchema
+export const urlSchema = z.object({
+    url: z.string().url({ message: "Invalid URL format" }),
+    shortId: z.string().optional(),
+    clicks: z.number().int().positive({ message: "Clicks must be a positive integer" }).optional(),
+    expiresAt: z.date({ message: "Invalid date format" }).optional(),
+    ownerId: z.string().length(24, { message: "Owner ID must be exactly 24 characters long" }).optional()
+});

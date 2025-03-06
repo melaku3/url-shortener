@@ -5,8 +5,12 @@ import morgan from "morgan";
 import errorHandler from "./middlewares/errorHandler";
 const app = express();
 
+// Controllers
+import { redirectToUrl } from "./controllers/urlController";
+
 // Routes
 import authRoute from "./routes/authRoute";
+import urlRoute from "./routes/urlRoute";
 
 // Middlewares
 app.use(express.json());
@@ -16,12 +20,10 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 
 
-app.get("/", (_req, res) => {
-    res.json({ message: "Welcome to url shortener API" });
-});
-
 // api endpoints
+app.get("/:shortId", redirectToUrl);
 app.use("/api/auth", authRoute);
+app.use("/api/url", urlRoute);
 
 // Error handler
 app.use(errorHandler);
