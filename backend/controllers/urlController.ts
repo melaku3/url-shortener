@@ -1,4 +1,6 @@
 import expressAsyncHandler from "express-async-handler";
+import { Request } from "express-serve-static-core";
+import analyticsModel from "../models/analyticsModel";
 import urlModel from "../models/urlModel";
 import { urlSchema } from "../utils/validation";
 import { generateShortId } from "../utils/types";
@@ -39,7 +41,7 @@ export const shortenUrl = expressAsyncHandler(async (req, res) => {
     await shortId.save();
 
     res.status(201).json({ message: "URL shortened successfully", shortUrl: `${process.env.BASE_URL}/${shortId.shortId}` });
-    
+
 });
 
 // @docs: redirect to the original URL
@@ -52,6 +54,9 @@ export const redirectToUrl = expressAsyncHandler(async (req, res) => {
     const checkCache = await redisClient.get(shortId);
     if (checkCache) {
         console.log('Cache Hit');
+
+        // 
+        logAnalytics(req, shortId);
         res.redirect(checkCache);
         return;
     }
@@ -65,6 +70,9 @@ export const redirectToUrl = expressAsyncHandler(async (req, res) => {
 
     // set the short URL in the cache
     await redisClient.set(shortId, url.url);
+
+    // 
+    await logAnalytics(req, shortId)
 
     // increment the click count
     url.clicks++;
@@ -96,5 +104,39 @@ export const getAnalytics = expressAsyncHandler(async (req, res) => {
         return;
     }
 
-    res.status(200).json({ message: "Analytics fetched successfully", data: url });
+    const analytics = await analyticsModel.find({ shortId: url._id });
+
+    if (!analytics.length) {
+        res.status(404).json({ message: "No analytics data found for this URL" })
+    }
+
+    // count top referrer
+    const referrerCounts: Record<string, number> = {};
+    analytics.forEach((entry) => {
+        const referrer = entry.referrer || "Direct";
+        referrerCounts[referrer] = (referrerCounts[referrer] || 0) + 1;
+    });
+
+    // Count top devices
+    const deviceCounts: Record<string, number> = {};
+    analytics.forEach((entry) => {
+        const device = entry.userAgent || "Unknown";
+        deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+    });
+
+
+    res.status(200).json({ shortId, totalClicks: url.clicks, topReferrers: referrerCounts, topDevices: deviceCounts, visitsOverTime: analytics.map(entry => entry.timestamp) });
 });
+
+// @docs: Log analytics for a short URL
+const logAnalytics = async (req: Request, shortId: string) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const referrer = req.get('Referrer') || 'Direct';
+    const location = req.headers['location'] || 'Unknown';
+
+    const urlId = await urlModel.findOne({ shortId });
+    if (urlId) {
+        await analyticsModel.create({ shortId: urlId._id, ip, userAgent, referrer, location, timestamp: new Date() });
+    }
+};
